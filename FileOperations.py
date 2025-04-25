@@ -65,9 +65,12 @@ def WriteDistressDataset(year):
     # Create Distress Dataset
     P = P.merge(DefaultDate, on="Loan Sequence Number", how="left")
     Distress = P[(P["Moderate Stress"] == 1) | (P["Zero Balance Default"] == 1)]
-    DistressColumns = []
+    DistressColumns = ["Loan Sequence Number", "Monthly Reporting Period", "Moderate Stress", "Major Stress", "Default Flag",
+                       "Zero Balance Code", "Unresolved Delinquency", "Actual Loss Calculation", "Zero Balance Removal UPD", 
+                       "Net Sale Proceeds", "Delinquent Accrued Interest", "Total Expenses", "MI Recoveries", "Non-MI Recoveries"]
     
-    Distress[DistressColumns].to_csv(f"Distress_{year}.csv", index=False)
+    Distress[DistressColumns].to_parquet(f"DefaultData/Defaults{year}.parquet", engine="pyarrow", index=False)
+
 
 
 
