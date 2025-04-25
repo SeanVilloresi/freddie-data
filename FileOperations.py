@@ -38,7 +38,6 @@ def WriteDistressDataset(year):
     P = ReadPTXT(year)
 
     # Create Stress Flags
-    P.loc[(~P["Current Loan Delinquency Status"].isin(('0','1','2'))),"Moderate Stress"] = 1
     P.loc[(~P["Current Loan Delinquency Status"].isin(('0','1','2','3','4','5'))),"Major Stress"] = 1
 
     # Create ZB Flags
@@ -64,8 +63,8 @@ def WriteDistressDataset(year):
 
     # Create Distress Dataset
     P = P.merge(DefaultDate, on="Loan Sequence Number", how="left")
-    Distress = P[(P["Moderate Stress"] == 1) | (P["Zero Balance Default"] == 1)]
-    DistressColumns = ["Loan Sequence Number", "Monthly Reporting Period", "Moderate Stress", "Major Stress", "Default Flag",
+    Distress = P[(P["Major Stress"] == 1) | (P["Zero Balance Default"] == 1)]
+    DistressColumns = ["Loan Sequence Number", "Monthly Reporting Period", "Major Stress", "Default Flag",
                        "Zero Balance Code", "Unresolved Delinquency", "Actual Loss Calculation", "Zero Balance Removal UPB", 
                        "Net Sales Proceeds", "Delinquent Accrued Interest", "Expenses", "MI Recoveries", "Non MI Recoveries", "Most Recent Currency"]
     
