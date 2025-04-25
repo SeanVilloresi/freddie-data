@@ -19,18 +19,18 @@ def ReadPTXT(year):
 
 def ReadOTXT(year):
 
-    Ocols = ["Credit Score", "First Payment Date", "First Time Homebuyer Flag", "Maturity Date", 
-                        "Metropolitan Statistical Area (MSA) Or Metropolitan Division", "Mortgage Insurance Percentage (MI %)",
-                        "Number of Units", "Occupancy Status", "Original Combined Loan-to-Value (CLTV)",
-                        "Original Debt-to-Income (DTI) Ratio", "Original UPB", "Original Loan-to-Value (LTV)", 
-                        "Original Interest Rate", "Channel", "Prepayment Penalty Mortgage (PPM) Flag", 
-                        "Amortization Type (Formerly Product Type)", "Property State", "Property Type", "Postal Code", 
-                        "Loan Sequence Number", "Loan Purpose", "Original Loan Term", "Number of Borrowers", "Seller Name", 
-                        "Servicer Name", "Super Conforming Flag", "Pre-HARP Loan Sequence Number", "Program Indicator", 
-                        "HARP Indicator", "Property Valuation Method", "Interest Only (I/O) Indicator", 
-                        "Mortgage Insurance Cancellation Indicator"]
+    Ocols = [
+        "Credit Score", "First Payment Date", "First Time Homebuyer Flag", "Maturity Date", 
+        "Metropolitan Statistical Area (MSA) Or Metropolitan Division", "Mortgage Insurance Percentage (MI %)", "Number of Units", 
+        "Occupancy Status", "Original Combined Loan-to-Value (CLTV)", "Original Debt-to-Income (DTI) Ratio", 
+        "Original UPB", "Original Loan-to-Value (LTV)", "Original Interest Rate", "Channel", "Prepayment Penalty Mortgage (PPM) Flag", 
+        "Amortization Type (Formerly Product Type)", "Property State", "Property Type", "Postal Code", "Loan Sequence Number", 
+        "Loan Purpose", "Original Loan Term", "Number of Borrowers", "Seller Name", "Servicer Name", "Super Conforming Flag", 
+        "Pre-HARP Loan Sequence Number", "Program Indicator", "HARP Indicator", "Property Valuation Method", 
+        "Interest Only (I/O) Indicator", "Mortgage Insurance Cancellation Indicator"
+        ]
     
-    df = pd.read_csv(f'OriginationSample/sample_orig_{year}.txt', sep='|', header=None)
+    df = pd.read_csv(f'OSample/sample_orig_{year}.txt', sep='|', header=None)
     df.columns = Ocols
     return df
 
@@ -70,8 +70,27 @@ def WriteDistressDataset(year):
     
     Distress[DistressColumns].to_parquet(f"DefaultData/Defaults{year}.parquet", engine="pyarrow", index=False)
 
+def WriteTrainingData(year):
+    
+    PcolsToDrop = [
+        "Defect Settlement Date", "Zero Balance Code", "Zero Balance Effective Date", "Due Date of Last Paid Installment (DDLPI)",
+        "MI Recoveries", "Net Sales Proceeds", "Non MI Recoveries", "Expenses", "Legal Costs", "Maintenance and Preservation Costs",
+        "Taxes and Insurance", "Miscellaneous Expenses", "Actual Loss Calculation", "Modification Cost", 
+        "Zero Balance Removal UPB", "Delinquent Accrued Interest", "Current Month Modification Cost"
+        ]
+    
+    OcolsToDrop = [
+        "First Payment Date", "Maturity Date", "Channel", "Seller Name", "Servicer Name", "Super Conforming Flag", 
+        "Pre-HARP Loan Sequence Number", "HARP Indicator"
+        ]
+    
+    P = ReadPTXT(year).drop(columns = PcolsToDrop)
+    O = ReadOTXT(year).drop(columns = OcolsToDrop)
+    D = pd.read_parquet(f"DefaultData/Defaults{year}.parquet", engine="pyarrow")
 
-WriteDistressDataset(2011)
+    MERGED = O.merge(P, on="Loan Sequence Number", how="inner")
+
+
 
 
 
