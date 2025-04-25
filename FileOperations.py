@@ -17,7 +17,7 @@ def ReadPTXT(year):
 
     return df
 
-def ReadOriginationTXT(year):
+def ReadOTXT(year):
 
     Ocols = ["Credit Score", "First Payment Date", "First Time Homebuyer Flag", "Maturity Date", 
                         "Metropolitan Statistical Area (MSA) Or Metropolitan Division", "Mortgage Insurance Percentage (MI %)",
