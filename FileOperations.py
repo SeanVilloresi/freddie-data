@@ -55,9 +55,9 @@ def WriteDistressDataset(year):
     P.loc[(P["Ends In Payoff"] == 1) | (P["Monthly Reporting Period"] < P["Most Recent Currency"]) | (P["Unresolved Delinquency"] == 1), "Invalid Default"] = 1
 
     # Get Default Date for Defautled Mortgages
-    P.loc[((P["Major Stress"]==1) | (P["Zero Balance Default"]==1)) & (~(P["Invalid Default"] == 1)),"Default Flag"] = 1
+    P.loc[((P["Major Stress"]==1) | (P["Zero Balance Default"]==1)) & (~(P["Invalid Default"] == 1)), "Default Flag"] = 1
     
-    DefaultDate = P[P["Default Flag"]==1][["Loan Sequence Number","Monthly Reporting Period","Default Flag"]]
+    DefaultDate = P[P["Default Flag"]==1][["Loan Sequence Number","Monthly Reporting Period"]]
     DefaultDate = DefaultDate.sort_values(by=['Loan Sequence Number', 'Monthly Reporting Period'])
     DefaultDate = DefaultDate.rename(columns={'Monthly Reporting Period':'Default Date'})
     DefaultDate = DefaultDate.groupby("Loan Sequence Number").first().reset_index()
@@ -67,7 +67,7 @@ def WriteDistressDataset(year):
     Distress = P[(P["Moderate Stress"] == 1) | (P["Zero Balance Default"] == 1)]
     DistressColumns = ["Loan Sequence Number", "Monthly Reporting Period", "Moderate Stress", "Major Stress", "Default Flag",
                        "Zero Balance Code", "Unresolved Delinquency", "Actual Loss Calculation", "Zero Balance Removal UPB", 
-                       "Net Sales Proceeds", "Delinquent Accrued Interest", "Expenses", "MI Recoveries", "Non MI Recoveries"]
+                       "Net Sales Proceeds", "Delinquent Accrued Interest", "Expenses", "MI Recoveries", "Non MI Recoveries", "Most Recent Currency"]
     
     Distress[DistressColumns].to_parquet(f"DefaultData/Defaults{year}.parquet", engine="pyarrow", index=False)
 
