@@ -39,46 +39,44 @@ def ReadOTXT(year):
 
 def WriteDistressDataset(year):
     P = ReadPTXT(year)
+    P = P.rename(columns={'Monthly Reporting Period':'Distress Date'})
 
     # Create Stress Flag
-    P.loc[(~P["Current Loan Delinquency Status"].isin(('0','1','2','3','4','5'))),"Major Stress"] = 1
-
-    # Create ZB Flags
-    P.loc[(P["Zero Balance Code"].isin((2.0, 3.0, 9.0))),"Zero Balance Default"] = 1
-    ZB1 = set(P[P["Zero Balance Code"] == 1.0]["Loan Sequence Number"].unique())
-    P.loc[(P["Loan Sequence Number"].isin(ZB1)),"Ends In Payoff"] = 1
+    P.loc[(~P["Current Loan Delinquency Status"].isin(('0','1','2','3','4','5'))) | (P["Zero Balance Code"].isin((2.0, 3.0, 9.0))),"Major Stress"] = 1
 
     # Find Invalid Defaults
-    MostRecentCurrency = (P[P["Current Loan Delinquency Status"] == '0'].groupby("Loan Sequence Number")["Monthly Reporting Period"]
-                          .max().reset_index().rename(columns={"Monthly Reporting Period": "Most Recent Currency"}))
+    ZB1 = set(P[P["Zero Balance Code"] == 1.0]["Loan Sequence Number"].unique())
+    P.loc[(P["Loan Sequence Number"].isin(ZB1)),"Ends In Payoff"] = 1
+    MostRecentCurrency = (P[P["Current Loan Delinquency Status"] == '0'].groupby("Loan Sequence Number")["Distress Date"]
+                          .max().reset_index().rename(columns={"Distress Date": "Most Recent Currency"}))
     P = P.merge(MostRecentCurrency, on="Loan Sequence Number", how="left")
-    UnresolvedDelinquency = set(P[(P["Monthly Reporting Period"] == 202409) & (P["Current Loan Delinquency Status"] != "0")]["Loan Sequence Number"].dropna().unique())
+    UnresolvedDelinquency = set(P[(P["Distress Date"] == 202409) & (P["Current Loan Delinquency Status"] != "0")]["Loan Sequence Number"].dropna().unique())
     P.loc[(P["Loan Sequence Number"].isin(UnresolvedDelinquency)),"Unresolved Delinquency"] = 1
-    P.loc[(P["Ends In Payoff"] == 1) | (P["Monthly Reporting Period"] < P["Most Recent Currency"]) | (P["Unresolved Delinquency"] == 1), "Invalid Default"] = 1
+    P.loc[(P["Ends In Payoff"] == 1) | (P["Distress Date"] < P["Most Recent Currency"]) | (P["Unresolved Delinquency"] == 1), "Invalid Default"] = 1
 
-    # Get Default Date for Defautled Mortgages
-    P.loc[((P["Major Stress"]==1) | (P["Zero Balance Default"]==1)) & (~(P["Invalid Default"] == 1)), "Default Flag"] = 1
+    # Get Loss Data
+    P.loc[(P["Major Stress"]==1) & (~(P["Invalid Default"] == 1)), "Default Flag"] = 1
     
-    DefaultDate = P[P["Default Flag"]==1][["Loan Sequence Number","Monthly Reporting Period", 
+    LossData = P[P["Default Flag"]==1][["Loan Sequence Number","Distress Date", "Default Flag",
                                            "Actual Loss Calculation", "Zero Balance Removal UPB", "Net Sales Proceeds", 
                                            "Delinquent Accrued Interest", "Expenses", "MI Recoveries", "Non MI Recoveries"]]
-    DefaultDate = DefaultDate.sort_values(by=['Loan Sequence Number', 'Monthly Reporting Period'])
-    DefaultDate = DefaultDate.rename(columns={'Monthly Reporting Period':'Default Date'})
-    DefaultDate = DefaultDate.groupby("Loan Sequence Number").first().reset_index()
+    LossData = LossData.sort_values(by=['Loan Sequence Number', 'Distress Date'])
+    LossData = LossData.groupby("Loan Sequence Number").first().reset_index()
 
     # Create Distress Dataset
     P = P.drop(columns=["Actual Loss Calculation", "Zero Balance Removal UPB", "Net Sales Proceeds", "Delinquent Accrued Interest", 
                         "Expenses", "MI Recoveries", "Non MI Recoveries"])
-    P = P.merge(DefaultDate, on=["Loan Sequence Number"], how="left")
-    P = P.rename(columns={'Monthly Reporting Period':'Distress Date'})
-    Distress = P[(P["Major Stress"] == 1) | (P["Zero Balance Default"] == 1)]
-    DistressColumns = ["Loan Sequence Number", "Distress Date", "Major Stress", "Default Flag", "Default Date",
+    P = P.merge(LossData, on=["Loan Sequence Number", "Distress Date", "Default Flag"], how="left")
+    
+    Distress = P[(P["Major Stress"] == 1)]
+    DistressColumns = ["Loan Sequence Number", "Distress Date", "Major Stress", "Default Flag",
                        "Zero Balance Code", "Unresolved Delinquency", "Most Recent Currency", 
                        "Actual Loss Calculation", "Zero Balance Removal UPB", "Net Sales Proceeds", "Delinquent Accrued Interest", 
                        "Expenses", "MI Recoveries", "Non MI Recoveries"
                        ]
     
     Distress[DistressColumns].to_parquet(f"DefaultData/Defaults{year}.parquet", engine="pyarrow", index=False)
+    print(f"Wrote DefaultData/Defaults{year}.parquet!")
 
 def WriteTrainingData(year):
     
@@ -151,7 +149,6 @@ def WriteTrainingData(year):
 
         print(f"Wrote {FileName}!")
 
-WriteTrainingData(2011)
 
 
 
