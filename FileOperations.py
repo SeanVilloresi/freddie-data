@@ -69,7 +69,7 @@ def WriteDistressDataset(year):
     # Create Distress Dataset
     P = P.drop(columns=["Actual Loss Calculation", "Zero Balance Removal UPB", "Net Sales Proceeds", "Delinquent Accrued Interest", 
                         "Expenses", "MI Recoveries", "Non MI Recoveries"])
-    P = P.merge(DefaultDate, on="Loan Sequence Number", how="left")
+    P = P.merge(DefaultDate, on=["Loan Sequence Number"], how="left")
     P = P.rename(columns={'Monthly Reporting Period':'Distress Date'})
     Distress = P[(P["Major Stress"] == 1) | (P["Zero Balance Default"] == 1)]
     DistressColumns = ["Loan Sequence Number", "Distress Date", "Major Stress", "Default Flag", "Default Date",
@@ -107,6 +107,8 @@ def WriteTrainingData(year):
 
     P = P[P["Current Loan Delinquency Status"].isin(('0','1','2','3','4','5'))]
     P = P[P["Monthly Reporting Period"].between(201101, 201812)]
+    P = P[P["Monthly Reporting Period"] % 100 == 1]
+
 
     MERGED = O.merge(P, on="Loan Sequence Number", how="inner")
 
@@ -128,7 +130,7 @@ def WriteTrainingData(year):
             return pd.NA
         
         Date = row['Monthly Reporting Period']
-        for i in range(12):
+        for i in range(1, 13):
             NextDate = add_months(Date, i)
             if (ID, NextDate) in DistressDatePairs:
                 return NextDate
@@ -136,7 +138,9 @@ def WriteTrainingData(year):
 
     tqdm.pandas(desc="Finding Dates Where Loans Are Within 12 Months Of Distress.")
     MERGED["Distress Date"] = MERGED.progress_apply(find_first_match, axis=1)
-    MERGED = MERGED.merge(D, on=["Distress Date"], how='left')
+    MERGED = MERGED.merge(D, on=["Loan Sequence Number", "Distress Date"], how='left')
+    MERGED = MERGED[MERGED['Credit Score'] < 998]
+    
 
     print("Merged with Distress Data!")
 
@@ -146,6 +150,8 @@ def WriteTrainingData(year):
         YearDF.to_parquet(FileName, index=False, compression="snappy")
 
         print(f"Wrote {FileName}!")
+
+WriteTrainingData(2011)
 
 
 
