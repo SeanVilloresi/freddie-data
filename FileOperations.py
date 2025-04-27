@@ -47,6 +47,9 @@ def WriteDistressDataset(year):
     EndsInPayoff = (P["Loan Sequence Number"].isin(set(P[P["Zero Balance Code"] == 1.0]["Loan Sequence Number"].unique())))
 
     MostRecentCurrency = P["Loan Sequence Number"].map(P[P["Current Loan Delinquency Status"] == '0'].groupby("Loan Sequence Number")["Distress Date"].max())
+    # print(MostRecentCurrency)
+    MostRecentCurrency = MostRecentCurrency.fillna(-1)
+
     Recovered = (P["Distress Date"] < MostRecentCurrency)
 
     Unresolved = (P["Loan Sequence Number"].isin(set(P[(P["Distress Date"] == 202409)]["Loan Sequence Number"].unique())))
@@ -59,7 +62,7 @@ def WriteDistressDataset(year):
     P.loc[:, "Major Stress"] = MajorStress.astype(int)
     P.loc[:, "Default Flag"] = DefaultFlag.astype(int)
     P.loc[:, "Unresolved"] = Unresolved.astype(int)
-    P.loc[:, "Last Time Current"] = MostRecentCurrency.astype(int)
+    P.loc[:, "Last Time Current"] = MostRecentCurrency
 
 
     # Get Loss Data
@@ -113,7 +116,19 @@ def WriteTrainingData(year):
 
     P = P[P["Current Loan Delinquency Status"].isin(('0','1','2','3','4','5'))]
     P = P[P["Monthly Reporting Period"].between(201101, 201812)]
-    P = P[P["Monthly Reporting Period"] % 100 == 1]
+
+    FirstMonth = P.groupby('Loan Sequence Number')["Monthly Reporting Period"].min() % 100
+
+    # Map each loan to its starting month
+    P['Start Month'] = P['Loan Sequence Number'].map(FirstMonth)
+
+    # Keep only rows where Monthly Reporting Period month == Start Month
+    P = P[P["Monthly Reporting Period"] % 100 == P['Start Month']]
+
+    # Group by ID
+    # Sort by Monthly report period
+    # New column which is the month of that first period
+    # Change   P = P[P["Monthly Reporting Period"] % 100 == 1] to be like % 100 == P['Start Month']
 
 
     MERGED = O.merge(P, on="Loan Sequence Number", how="inner")
@@ -150,7 +165,7 @@ def WriteTrainingData(year):
 
     print("Merged with Distress Data!")
 
-    for PerformanceYear in range(2011, 2018 + 1):
+    for PerformanceYear in range(year, 2018 + 1):
         YearDF = MERGED[MERGED['Monthly Reporting Period'] // 100 == PerformanceYear]
         FileName = f'TrainingData/Year{PerformanceYear}/TrainingData{PerformanceYear}Orig{year}.parquet'
         YearDF.to_parquet(FileName, index=False, compression="snappy")
@@ -158,6 +173,9 @@ def WriteTrainingData(year):
         print(f"Wrote {FileName}!")
 
 
+for year in range(2011, 2018 + 1):
+    # WriteDistressDataset(year)
+    WriteTrainingData(year)
 
 
 
