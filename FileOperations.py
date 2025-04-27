@@ -33,7 +33,7 @@ def ReadOTXT(year):
         "Interest Only (I/O) Indicator", "Mortgage Insurance Cancellation Indicator"
         ]
     
-    df = pd.read_csv(f'OSample/sample_orig_{year}.txt', sep='|', header=None)
+    df = pd.read_csv(f'OSample/sample_orig_{year}.txt', sep='|', header=None, dtype={i : str for i in [27]})
     df.columns = Ocols
     return df
 
@@ -95,12 +95,14 @@ def WriteTrainingData(year):
         "Defect Settlement Date", "Zero Balance Code", "Zero Balance Effective Date", "Due Date of Last Paid Installment (DDLPI)",
         "MI Recoveries", "Net Sales Proceeds", "Non MI Recoveries", "Expenses", "Legal Costs", "Maintenance and Preservation Costs",
         "Taxes and Insurance", "Miscellaneous Expenses", "Actual Loss Calculation", "Modification Cost", 
-        "Zero Balance Removal UPB", "Delinquent Accrued Interest", "Current Month Modification Cost"
+        "Zero Balance Removal UPB", "Delinquent Accrued Interest", "Current Month Modification Cost", "Step Modification Flag",
+        
         ]
     
     OColsToDrop = [
         "First Payment Date", "Maturity Date", "Channel", "Seller Name", "Servicer Name", "Super Conforming Flag", 
-        "Pre-HARP Loan Sequence Number", "HARP Indicator"
+        "Pre-HARP Loan Sequence Number", "HARP Indicator", "Interest Only (I/O) Indicator", "Amortization Type (Formerly Product Type)",
+        "Prepayment Penalty Mortgage (PPM) Flag"
         ]
     
     P = ReadPTXT(year).drop(columns = PColsToDrop)
@@ -113,6 +115,11 @@ def WriteTrainingData(year):
     P["Numeric Delinquency"] = pd.to_numeric(P["Current Loan Delinquency Status"], errors="coerce")
     P = P.sort_values(["Loan Sequence Number", "Monthly Reporting Period"])
     P["MaxPriorDelinquency"] = (P.groupby("Loan Sequence Number")["Numeric Delinquency"].expanding().max().shift().fillna(0).reset_index(level=0, drop=True))
+    
+    P["Modification Flag"] = P["Modification Flag"].notna().astype(int)
+    P["Deferred Payment Plan"] = P["Deferred Payment Plan"].notna().astype(int)
+    P["Delinquency Due to Disaster"] = P["Delinquency Due to Disaster"].notna().astype(int)
+
 
     P = P[P["Current Loan Delinquency Status"].isin(('0','1','2','3','4','5'))]
     P = P[P["Monthly Reporting Period"].between(201101, 201912)]
