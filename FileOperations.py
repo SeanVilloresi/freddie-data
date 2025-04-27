@@ -115,7 +115,7 @@ def WriteTrainingData(year):
     P["MaxPriorDelinquency"] = (P.groupby("Loan Sequence Number")["Numeric Delinquency"].expanding().max().shift().fillna(0).reset_index(level=0, drop=True))
 
     P = P[P["Current Loan Delinquency Status"].isin(('0','1','2','3','4','5'))]
-    P = P[P["Monthly Reporting Period"].between(201101, 201812)]
+    P = P[P["Monthly Reporting Period"].between(201101, 201912)]
 
     FirstMonth = P.groupby('Loan Sequence Number')["Monthly Reporting Period"].min() % 100
 
