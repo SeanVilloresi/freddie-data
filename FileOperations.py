@@ -35,6 +35,8 @@ def ReadOTXT(year):
     
     df = pd.read_csv(f'OSample/sample_orig_{year}.txt', sep='|', header=None, dtype={i : str for i in [27]})
     df.columns = Ocols
+    df = df.rename(columns={"Metropolitan Statistical Area (MSA) Or Metropolitan Division" : "MSA"})
+
     return df
 
 def WriteDistressDataset(year):
@@ -115,33 +117,59 @@ def WriteTrainingData(year):
     P["Numeric Delinquency"] = pd.to_numeric(P["Current Loan Delinquency Status"], errors="coerce")
     P = P.sort_values(["Loan Sequence Number", "Monthly Reporting Period"])
     P["MaxPriorDelinquency"] = (P.groupby("Loan Sequence Number")["Numeric Delinquency"].expanding().max().shift().fillna(0).reset_index(level=0, drop=True))
+
+    print("Computed Maximum Prior Delinquency!")
     
     P["Modification Flag"] = P["Modification Flag"].notna().astype(int)
     P["Deferred Payment Plan"] = P["Deferred Payment Plan"].notna().astype(int)
     P["Delinquency Due to Disaster"] = P["Delinquency Due to Disaster"].notna().astype(int)
 
+    # Map each loan to its starting month
+    FirstMonth = P.groupby('Loan Sequence Number')["Monthly Reporting Period"].min() % 100
+    P['Start Month'] = P['Loan Sequence Number'].map(FirstMonth)
 
     P = P[P["Current Loan Delinquency Status"].isin(('0','1','2','3','4','5'))]
     P = P[P["Monthly Reporting Period"].between(201101, 201912)]
-
-    FirstMonth = P.groupby('Loan Sequence Number')["Monthly Reporting Period"].min() % 100
-
-    # Map each loan to its starting month
-    P['Start Month'] = P['Loan Sequence Number'].map(FirstMonth)
-
-    # Keep only rows where Monthly Reporting Period month == Start Month
     P = P[P["Monthly Reporting Period"] % 100 == P['Start Month']]
+    P = P.drop(columns=["Start Month"])
 
-    # Group by ID
-    # Sort by Monthly report period
-    # New column which is the month of that first period
-    # Change   P = P[P["Monthly Reporting Period"] % 100 == 1] to be like % 100 == P['Start Month']
-
+    print("Filtered Performance!")
 
     MERGED = O.merge(P, on="Loan Sequence Number", how="inner")
 
     print("Merged Origination & Performance!")
 
+    def ExtractMonthFromID(ID):
+        # Assumes the string always starts with 'F' + 2 digits + 'Q' + 1 digit
+        fiscal_year = int(ID[1:3]) + 2000 
+        quarter = int(ID[4])
+        return year + (quarter * 3)
+
+    MERGED["Origination Month"] = MERGED["Loan Sequence Number"].apply(lambda ID : ExtractMonthFromID(ID))
+
+    MSA = pd.read_csv("MacroData/MSAMacros.csv")
+    State = pd.read_csv("MacroData/StateMacros.csv")
+
+    MERGED = MERGED.merge(MSA.rename(columns={"UnemploymentRate" : "Current MSA Unemployment Rate", 
+                                              "HPI (Seasonally Adjusted)" : "Current MSA HPI (Seasonally Adjusted)"}),
+                          left_on=["MSA", "Monthly Reporting Period"], right_on=["MSA", "YearMonth"], how="left").drop(columns=['YearMonth'])
+    
+    MERGED = MERGED.merge(MSA.rename(columns={"UnemploymentRate" : "MSA Unemployment Rate at Origination", 
+                                              "HPI (Seasonally Adjusted)" : "MSA HPI (Seasonally Adjusted) at Origination"}), 
+                          left_on=["MSA", "Origination Month"], right_on=["MSA", "YearMonth"], how="left").drop(columns=['YearMonth'])
+    
+    MERGED = MERGED.merge(State.rename(columns={"UnemploymentRate" : "Current State Unemployment Rate", 
+                                                "HPI (Seasonally Adjusted)" : "Current State HPI (Seasonally Adjusted)"}), 
+                          left_on=["Property State", "Monthly Reporting Period"], right_on=["Property State", "YearMonth"], how="left").drop(columns=['YearMonth'])
+    
+    MERGED = MERGED.merge(State.rename(columns={"UnemploymentRate" : "State Unemployment Rate at Origination", 
+                                                "HPI (Seasonally Adjusted)" : "State HPI (Seasonally Adjusted) at Origination"}), 
+                          left_on=["Property State", "Origination Month"], right_on=["Property State", "YearMonth"], how="left").drop(columns=['YearMonth'])
+
+    MERGED = MERGED.drop(columns=["Origination Month"])
+
+    print("Merged with Macro Data!")
+    
     DistressedLoans = set(D['Loan Sequence Number'].unique())
     DistressDatePairs = set(zip(D['Loan Sequence Number'], D['Distress Date']))
 
@@ -168,9 +196,9 @@ def WriteTrainingData(year):
     MERGED["Distress Date"] = MERGED.progress_apply(find_first_match, axis=1)
     MERGED = MERGED.merge(D, on=["Loan Sequence Number", "Distress Date"], how='left')
     MERGED = MERGED[MERGED['Credit Score'] < 998]
-    
 
     print("Merged with Distress Data!")
+    print(MERGED.columns)
 
     for PerformanceYear in range(year, 2018 + 1):
         YearDF = MERGED[MERGED['Monthly Reporting Period'] // 100 == PerformanceYear]
@@ -180,9 +208,74 @@ def WriteTrainingData(year):
         print(f"Wrote {FileName}!")
 
 
+def WriteMacroFiles():
+    MetropolitanUnemployment = pd.read_csv("MacroData/msa_unemployment_rates.csv")
+    StateUnemployment = pd.read_csv("MacroData/state_unemployment_rates.csv")
+
+    MetropolitanHPI = pd.read_excel("MacroData/hpi_metro.xls")
+    StateHPI = pd.read_excel("MacroData/hpi_state.xls")
+
+    MetropolitanUnemployment = MetropolitanUnemployment.rename(columns={"MSA_FIPS_Code" : "MSA"})
+    MetropolitanHPI = MetropolitanHPI.rename(columns={"cbsa" : "MSA"})
+    StateUnemployment = StateUnemployment.rename(columns={"State" : 'Property State'})
+    StateHPI = StateHPI.rename(columns={"state" : 'Property State'})
+
+
+
+    def CleanHPIFile(DF, GeographyName):
+
+        def AddQuarter(row):
+            year = row['yr']
+            quarter = row['qtr']
+    
+            if quarter == 4:
+                year += 1
+                quarter = 1
+            else:
+                quarter += 1
+
+            return pd.Series({'Adjusted Year': year, 'Adjusted Quarter': quarter})
+        
+        PrevDF = DF.apply(AddQuarter, axis=1)
+        DF = pd.concat([DF, PrevDF], axis=1)
+        DF = DF.loc[DF.index.repeat(3)].reset_index(drop=True)
+
+
+        DF['Month IDX'] = DF.groupby([GeographyName, 'Adjusted Year', 'Adjusted Quarter']).cumcount()
+        
+        quarter_to_months = {
+            1: [1, 2, 3],
+            2: [4, 5, 6],
+            3: [7, 8, 9],
+            4: [10, 11, 12]
+        }
+
+        DF['Month'] = DF.apply(lambda row: quarter_to_months[row['Adjusted Quarter']][row['Month IDX']], axis=1)
+
+        DF = DF.drop(columns=['Month IDX'])  
+        DF['YearMonth'] = DF.apply(lambda row : row["Adjusted Year"] * 100 + row["Month"], axis = 1)
+
+        DF = DF.rename(columns = {"index_sa" : "HPI (Seasonally Adjusted)"})
+
+        return DF[[GeographyName, "YearMonth", "HPI (Seasonally Adjusted)"]]
+
+
+    MetropolitanHPI = CleanHPIFile(MetropolitanHPI, "MSA")
+    StateHPI = CleanHPIFile(StateHPI, "Property State")
+
+    MetropolitanUnemployment = MetropolitanUnemployment[MetropolitanUnemployment["YearMonth"] > 199900]
+    MetropolitanUnemployment = MetropolitanUnemployment[~(MetropolitanUnemployment["YearMonth"] % 100 == 13)]
+    StateUnemployment = StateUnemployment[StateUnemployment["YearMonth"] > 199900]
+
+    MetropolitanUnemployment.merge(MetropolitanHPI, on = ["MSA", "YearMonth"], how = "left").to_csv("MacroData/MSAMacros.csv", index=False)
+    StateUnemployment.merge(StateHPI, on = ["Property State", "YearMonth"], how = "inner").to_csv("MacroData/StateMacros.csv", index=False)
+
+
 for year in range(2011, 2018 + 1):
-    # WriteDistressDataset(year)
+    WriteDistressDataset(year)
     WriteTrainingData(year)
+
+#WriteMacroFiles()
 
 
 
