@@ -102,7 +102,7 @@ def WriteTrainingData(year):
         ]
     
     OColsToDrop = [
-        "First Payment Date", "Maturity Date", "Channel", "Seller Name", "Servicer Name", "Super Conforming Flag", 
+        "Maturity Date", "Channel", "Seller Name", "Servicer Name", "Super Conforming Flag", 
         "Pre-HARP Loan Sequence Number", "HARP Indicator", "Interest Only (I/O) Indicator", "Amortization Type (Formerly Product Type)",
         "Prepayment Penalty Mortgage (PPM) Flag"
         ]
@@ -147,29 +147,68 @@ def WriteTrainingData(year):
 
     MERGED["Origination Month"] = MERGED["Loan Sequence Number"].apply(lambda ID : ExtractMonthFromID(ID))
 
+    #################################################################################### Macro Merging
     MSA = pd.read_csv("MacroData/MSAMacros.csv")
     State = pd.read_csv("MacroData/StateMacros.csv")
 
-    MERGED = MERGED.merge(MSA.rename(columns={"UnemploymentRate" : "Current MSA Unemployment Rate", 
-                                              "HPI (Seasonally Adjusted)" : "Current MSA HPI (Seasonally Adjusted)"}),
-                          left_on=["MSA", "Monthly Reporting Period"], right_on=["MSA", "YearMonth"], how="left").drop(columns=['YearMonth'])
-    
-    MERGED = MERGED.merge(MSA.rename(columns={"UnemploymentRate" : "MSA Unemployment Rate at Origination", 
-                                              "HPI (Seasonally Adjusted)" : "MSA HPI (Seasonally Adjusted) at Origination"}), 
-                          left_on=["MSA", "Origination Month"], right_on=["MSA", "YearMonth"], how="left").drop(columns=['YearMonth'])
-    
-    MERGED = MERGED.merge(State.rename(columns={"UnemploymentRate" : "Current State Unemployment Rate", 
-                                                "HPI (Seasonally Adjusted)" : "Current State HPI (Seasonally Adjusted)"}), 
-                          left_on=["Property State", "Monthly Reporting Period"], right_on=["Property State", "YearMonth"], how="left").drop(columns=['YearMonth'])
-    
-    MERGED = MERGED.merge(State.rename(columns={"UnemploymentRate" : "State Unemployment Rate at Origination", 
-                                                "HPI (Seasonally Adjusted)" : "State HPI (Seasonally Adjusted) at Origination"}), 
-                          left_on=["Property State", "Origination Month"], right_on=["Property State", "YearMonth"], how="left").drop(columns=['YearMonth'])
+    # Origination Month
+    # Use first reporting month as Origination Month
+    def shift_back_one_month(ym):
+        year = ym // 100
+        month = ym % 100
+        month -= 1
+        if month == 0:
+            month = 12
+            year -= 1
+        return year * 100 + month
 
-    MERGED = MERGED.drop(columns=["Origination Month"])
+    MERGED["First Payment Date"] = MERGED["First Payment Date"].astype(int)  # ensure correct type
+    MERGED["Origination Month"] = MERGED["First Payment Date"].apply(shift_back_one_month)
+    MERGED["Prior Year Month"] = (MERGED["Monthly Reporting Period"] // 100 - 1) * 100 + (MERGED["Monthly Reporting Period"] % 100)
 
-    print("Merged with Macro Data!")
-    
+    # Define merge targets
+    macro_merges = [
+        ("Current MSA Unemployment Rate", "Current MSA HPI (Seasonally Adjusted)", "MSA", "Monthly Reporting Period", MSA),
+        ("MSA Unemployment Rate at Origination", "MSA HPI (Seasonally Adjusted) at Origination", "MSA", "Origination Month", MSA),
+        ("Current State Unemployment Rate", "Current State HPI (Seasonally Adjusted)", "Property State", "Monthly Reporting Period", State),
+        ("State Unemployment Rate at Origination", "State HPI (Seasonally Adjusted) at Origination", "Property State", "Origination Month", State),
+        ("MSA Unemployment Rate 1Y Ago", None, "MSA", "Prior Year Month", MSA),
+        ("State Unemployment Rate 1Y Ago", None, "Property State", "Prior Year Month", State)
+    ]
+
+    # Perform macro merges
+    for ur_col, hpi_col, geo_col, date_col, df_macro in macro_merges:
+        cols = [geo_col, "YearMonth", "UnemploymentRate"]
+        rename_dict = {"UnemploymentRate": ur_col}
+        if hpi_col:
+            cols.append("HPI (Seasonally Adjusted)")
+            rename_dict["HPI (Seasonally Adjusted)"] = hpi_col
+        MERGED = MERGED.merge(
+            df_macro[cols].rename(columns=rename_dict),
+            left_on=[geo_col, date_col],
+            right_on=[geo_col, "YearMonth"],
+            how="left"
+        ).drop(columns=["YearMonth"])
+
+    # Fill MSA first, fallback to State
+    MERGED["Current HPI"] = MERGED["Current MSA HPI (Seasonally Adjusted)"].fillna(MERGED["Current State HPI (Seasonally Adjusted)"])
+    MERGED["Origination HPI"] = MERGED["MSA HPI (Seasonally Adjusted) at Origination"].fillna(MERGED["State HPI (Seasonally Adjusted) at Origination"])
+    MERGED["Current Unemployment Rate"] = MERGED["Current MSA Unemployment Rate"].fillna(MERGED["Current State Unemployment Rate"]).astype(float)
+    MERGED["Unemployment Rate at Origination"] = MERGED["MSA Unemployment Rate at Origination"].fillna(MERGED["State Unemployment Rate at Origination"]).astype(float)
+    MERGED["Unemployment Rate 1Y Ago"] = MERGED["MSA Unemployment Rate 1Y Ago"].fillna(MERGED["State Unemployment Rate 1Y Ago"]).astype(float)
+
+    # Final feature engineering
+    MERGED["HPI Change %"] = (MERGED["Current HPI"] / MERGED["Origination HPI"]) - 1
+    MERGED["Unemployment Rate Change 1Y"] = MERGED["Current Unemployment Rate"] - MERGED["Unemployment Rate 1Y Ago"]
+
+    # Drop temp columns
+    MERGED = MERGED.drop(columns=["Origination Month", "Prior Year Month",  "First Payment Date", "Current HPI", "Origination HPI", "Current MSA HPI (Seasonally Adjusted)",
+                                  "Current State HPI (Seasonally Adjusted)", "State HPI (Seasonally Adjusted) at Origination", "MSA HPI (Seasonally Adjusted) at Origination",
+                                  "State Unemployment Rate 1Y Ago", "Unemployment Rate 1Y Ago", "MSA Unemployment Rate 1Y Ago", "Current State Unemployment Rate",
+                                  "Current MSA Unemployment Rate", "State Unemployment Rate at Origination", "MSA Unemployment Rate at Origination"],)
+    print("Merged with Macro Data and created HPI % Change and UR Change 1Y!")
+    ############################################################################### Macro Merging Ended
+
     DistressedLoans = set(D['Loan Sequence Number'].unique())
     DistressDatePairs = set(zip(D['Loan Sequence Number'], D['Distress Date']))
 
