@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from dateutil.relativedelta import relativedelta
 from tqdm import tqdm
 
@@ -49,7 +50,7 @@ def WriteDistressDataset(year):
     EndsInPayoff = (P["Loan Sequence Number"].isin(set(P[P["Zero Balance Code"] == 1.0]["Loan Sequence Number"].unique())))
 
     MostRecentCurrency = P["Loan Sequence Number"].map(P[P["Current Loan Delinquency Status"] == '0'].groupby("Loan Sequence Number")["Distress Date"].max())
-    # print(MostRecentCurrency)
+
     MostRecentCurrency = MostRecentCurrency.fillna(-1)
 
     Recovered = (P["Distress Date"] < MostRecentCurrency)
@@ -128,8 +129,9 @@ def WriteTrainingData(year):
     FirstMonth = P.groupby('Loan Sequence Number')["Monthly Reporting Period"].min() % 100
     P['Start Month'] = P['Loan Sequence Number'].map(FirstMonth)
 
+    O = O[~O["Property State"].isin(("AS", "GU", "MP", "PR", "VI", "UM"))]
     P = P[P["Current Loan Delinquency Status"].isin(('0','1','2','3','4','5'))]
-    P = P[P["Monthly Reporting Period"].between(201101, 201912)]
+    P = P[P["Monthly Reporting Period"].between(200001, 201904)]
     P = P[P["Monthly Reporting Period"] % 100 == P['Start Month']]
     P = P.drop(columns=["Start Month"])
 
@@ -193,6 +195,7 @@ def WriteTrainingData(year):
     # Fill MSA first, fallback to State
     MERGED["Current HPI"] = MERGED["Current MSA HPI (Seasonally Adjusted)"].fillna(MERGED["Current State HPI (Seasonally Adjusted)"])
     MERGED["Origination HPI"] = MERGED["MSA HPI (Seasonally Adjusted) at Origination"].fillna(MERGED["State HPI (Seasonally Adjusted) at Origination"])
+    print(MERGED["Current MSA Unemployment Rate"].fillna(MERGED["Current State Unemployment Rate"]).dtype)
     MERGED["Current Unemployment Rate"] = MERGED["Current MSA Unemployment Rate"].fillna(MERGED["Current State Unemployment Rate"]).astype(float)
     MERGED["Unemployment Rate at Origination"] = MERGED["MSA Unemployment Rate at Origination"].fillna(MERGED["State Unemployment Rate at Origination"]).astype(float)
     MERGED["Unemployment Rate 1Y Ago"] = MERGED["MSA Unemployment Rate 1Y Ago"].fillna(MERGED["State Unemployment Rate 1Y Ago"]).astype(float)
@@ -258,6 +261,7 @@ def WriteMacroFiles():
     MetropolitanHPI = MetropolitanHPI.rename(columns={"cbsa" : "MSA"})
     StateUnemployment = StateUnemployment.rename(columns={"State" : 'Property State'})
     StateHPI = StateHPI.rename(columns={"state" : 'Property State'})
+    MetropolitanUnemployment = MetropolitanUnemployment.replace('-', np.nan)
 
 
 
@@ -310,7 +314,7 @@ def WriteMacroFiles():
     StateUnemployment.merge(StateHPI, on = ["Property State", "YearMonth"], how = "inner").to_csv("MacroData/StateMacros.csv", index=False)
 
 
-for year in range(2011, 2018 + 1):
+for year in range(2000, 2011 + 1):
     WriteDistressDataset(year)
     WriteTrainingData(year)
 
