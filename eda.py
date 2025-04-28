@@ -70,15 +70,61 @@ monthly_performance_columns = [
     "Interest Bearing UPB"
 ]
 
-df_orig = pd.read_csv('historical_data_2022Q3/historical_data_2022Q3.txt', sep='|', header=None)
-df_orig.columns = column_names
-df_month = pd.read_csv('historical_data_2022Q3/historical_data_time_2022Q3.txt', sep='|', header=None)
+# df_orig = pd.read_csv('sample_orig_2011.txt', sep='|', header=None)
+# df_orig.columns = column_names
+# df_month = pd.read_csv('sample_svcg_2011.txt', sep='|', header=None)
+# df_month.columns = monthly_performance_columns
+
+# df_month.to_parquet()
+
+
+
+# Group by loan, get unique delinquency statuses per loan
+# loan_delinquency = df_month.groupby("Loan Sequence Number")["Current Loan Delinquency Status"].unique()
+
+# Flatten the list of all unique statuses across loans
+from collections import Counter
+# delinquency_counter = Counter()
+
+# for statuses in loan_delinquency:
+#     delinquency_counter.update(statuses)
+
+
+# delinquency_ever_counts = pd.Series({str(k): v for k, v in delinquency_counter.items()}).sort_values(ascending=False)
+# delinquency_counts = delinquency_ever_counts[delinquency_ever_counts >= 50]
+# print(delinquency_counts)
+
+# Step 1: Find loan IDs that ever had delinquency status of 3
+# loans_with_dq3 = df_month["Loan Sequence Number"].unique()
+# print(len(loans_with_dq3))
+
+# # Step 2: Filter the full DataFrame to only those loans
+# df_dq3_loans = df_month[df_month["Loan Sequence Number"].isin(loans_with_dq3)]
+
+# # Step 3: For those loans, find the unique zero balance codes they ever had
+# zero_balance_for_dq3 = df_dq3_loans[df_dq3_loans["Zero Balance Code"].notna()]
+
+# # Step 4: Count the different Zero Balance Codes
+# zero_balance_code_counts = zero_balance_for_dq3["Zero Balance Code"].value_counts(dropna=False)
+
+# print(zero_balance_code_counts)F11Q10161782
+
+###################################################################################################################
+
+df_month = pd.read_csv("PSample/sample_svcg_2011.txt", sep='|', header=None)
 df_month.columns = monthly_performance_columns
+show(df_month)
+# show(df_month)
 
+# sample = pd.read_parquet("DefaultData/Defaults2012.parquet")
+# print(sample['Original Debt-to-Income (DTI) Ratio'].value_counts())
 
+# show(sample)
 
+# orig = pd.read_csv('PSample/sample_svcg_2011.txt', sep='|', header=None)
 
+# orig.columns = monthly_performance_columns
 
-
+# show(orig[orig['Loan Sequence Number'] == 'F11Q10002482'])
 
 
