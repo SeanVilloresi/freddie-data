@@ -131,7 +131,7 @@ def WriteTrainingData(year):
 
     O = O[~O["Property State"].isin(("AS", "GU", "MP", "PR", "VI", "UM"))]
     P = P[P["Current Loan Delinquency Status"].isin(('0','1','2','3','4','5'))]
-    P = P[P["Monthly Reporting Period"].between(200001, 201904)]
+    P = P[P["Monthly Reporting Period"].between(200001, 202401)]
     P = P[P["Monthly Reporting Period"] % 100 == P['Start Month']]
     P = P.drop(columns=["Start Month"])
 
@@ -242,7 +242,7 @@ def WriteTrainingData(year):
     print("Merged with Distress Data!")
     print(MERGED.columns)
 
-    for PerformanceYear in range(year, 2018 + 1):
+    for PerformanceYear in range(year, 2024 + 1):
         YearDF = MERGED[MERGED['Monthly Reporting Period'] // 100 == PerformanceYear]
         FileName = f'TrainingData/Year{PerformanceYear}/TrainingData{PerformanceYear}Orig{year}.parquet'
         YearDF.to_parquet(FileName, index=False, compression="snappy")
@@ -314,7 +314,7 @@ def WriteMacroFiles():
     StateUnemployment.merge(StateHPI, on = ["Property State", "YearMonth"], how = "inner").to_csv("MacroData/StateMacros.csv", index=False)
 
 
-for year in range(2000, 2011 + 1):
+for year in range(2012, 2018 + 1):
     WriteDistressDataset(year)
     WriteTrainingData(year)
 
