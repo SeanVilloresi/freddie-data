@@ -25,7 +25,7 @@ MISC_COLUMNS_TO_DROP = [
 ]
 
 # 3) Load and filter data, capturing metadata
-for year in range(2022, 2023):  # just 2023
+for year in range(2022, 2024):  # just 2023
     year_path = os.path.join(root_dir, f"Year{year}")
     if not os.path.isdir(year_path):
         continue
@@ -161,4 +161,4 @@ output_df = metadata_df.copy()
 output_df["LGD"] = predicted_lgd
 
 # 14) Save to Parquet
-output_df.to_parquet("lgd_predictions_2022.parquet", index=False)
+output_df.to_parquet("lgd_predictions_2023.parquet", index=False)

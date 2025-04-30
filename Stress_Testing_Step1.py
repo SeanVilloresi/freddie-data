@@ -171,8 +171,6 @@ for year_folder in sorted(os.listdir(root_dir)):
                 df = pd.read_parquet(file_path, columns=["Loan Sequence Number", "Monthly Reporting Period"])
                 loan_ids.append(df)
 
-
-# Concatenate all loan IDs
 # Concatenate all loan metadata
 loan_metadata = pd.concat(loan_ids, ignore_index=True)
 
