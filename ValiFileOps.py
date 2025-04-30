@@ -34,7 +34,7 @@ def ReadOTXT(year):
         "Interest Only (I/O) Indicator", "Mortgage Insurance Cancellation Indicator"
         ]
     
-    df = pd.read_csv(f'historical_data_{year}Q1.txt ', sep='|', header=None, dtype={i : str for i in [27]})
+    df = pd.read_csv(f'OVal/historical_data_{year}Q1.txt ', sep='|', header=None, dtype={i : str for i in [27]})
     df.columns = Ocols
     df = df.rename(columns={"Metropolitan Statistical Area (MSA) Or Metropolitan Division" : "MSA"})
 
@@ -89,7 +89,7 @@ def WriteDistressDataset(year):
                        "Expenses", "MI Recoveries", "Non MI Recoveries"
                        ]
     
-    D[DistressColumns].to_parquet(f"DefaultData/Defaults{year}.parquet", engine="pyarrow", index=False)
+    D[DistressColumns].to_parquet(f"DefaultValData/Defaults{year}.parquet", engine="pyarrow", index=False)
     print(f"Wrote DefaultValData/Defaults{year}.parquet!")
 
 def WriteTrainingData(year):
@@ -131,8 +131,8 @@ def WriteTrainingData(year):
 
     O = O[~O["Property State"].isin(("AS", "GU", "MP", "PR", "VI", "UM"))]
     P = P[P["Current Loan Delinquency Status"].isin(('0','1','2','3','4','5'))]
-    P = P[P["Monthly Reporting Period"].between(200001, 200801) | P["Monthly Reporting Period"].between(202212, 202409)]
-    P = P[P["Monthly Reporting Period"] % 100 == P['Start Month']]
+    P = P[P["Monthly Reporting Period"].isin((200701, 202301, 202401))]
+    #P = P[P["Monthly Reporting Period"] % 100 == P['Start Month']]
     P = P.drop(columns=["Start Month"])
 
     print("Filtered Performance!")
@@ -236,13 +236,23 @@ def WriteTrainingData(year):
 
     tqdm.pandas(desc="Finding Dates Where Loans Are Within 12 Months Of Distress.")
     MERGED["Distress Date"] = MERGED.progress_apply(find_first_match, axis=1)
+
+    #print((MERGED["Monthly Reporting Period"] == 200701).sum())
+    #print(MERGED["Distress Date"].dtype)
+    #print(D["Distress Date"].dtype)
+    #print(MERGED["Distress Date"].value_counts())
+    #print(D["Distress Date"].value_counts())
+
+    #print(MERGED["Distress Date"].isna().mean())
+    #print(D["Distress Date"].isna().mean())
+
     MERGED = MERGED.merge(D, on=["Loan Sequence Number", "Distress Date"], how='left')
     MERGED = MERGED[MERGED['Credit Score'] < 998]
 
     print("Merged with Distress Data!")
     print(MERGED.columns)
 
-    for PerformanceYear in [2007, 2008, 2023, 2024]:
+    for PerformanceYear in [2007, 2023, 2024]:
         YearDF = MERGED[MERGED['Monthly Reporting Period'] // 100 == PerformanceYear]
         FileName = f'ValData/Year{PerformanceYear}/ValData{PerformanceYear}Orig{year}.parquet'
         YearDF.to_parquet(FileName, index=False, compression="snappy")
@@ -314,7 +324,7 @@ def WriteMacroFiles():
     StateUnemployment.merge(StateHPI, on = ["Property State", "YearMonth"], how = "inner").to_csv("MacroData/StateMacros.csv", index=False)
 
 
-for year in range(start, end+1):
+for year in range(2000, 2000+1):
     WriteDistressDataset(year)
     WriteTrainingData(year)
 
