@@ -37,8 +37,8 @@ def apply_empirical_calibration(y_scores, intervals, probs):
 # Define the root directory
 root_dir = './TrainingData'
 
-start_year = 2024
-end_year = 2024
+start_year = 2022
+end_year = 2023
 
 TEST_list = []
 LABELS_list = []
@@ -179,6 +179,6 @@ output_df = loan_metadata.copy()
 output_df["Calibrated P(Stress)"] = calibrated_preds
 
 # Write to Parquet
-output_df.to_parquet("calibrated_predictions_2024.parquet", index=False)
+output_df.to_parquet("calibrated_predictions_2023.parquet", index=False)
 
 
