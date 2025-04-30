@@ -37,8 +37,8 @@ def apply_empirical_calibration(y_scores, intervals, probs):
 # Define the root directory
 root_dir = './TrainingData'
 
-start_year = 2023
-end_year = 2023
+start_year = 2024
+end_year = 2024
 
 TEST_list = []
 LABELS_list = []
@@ -168,18 +168,19 @@ for year_folder in sorted(os.listdir(root_dir)):
         for file in os.listdir(year_path):
             if file.endswith('.parquet'):
                 file_path = os.path.join(year_path, file)
-                df = pd.read_parquet(file_path, columns=["Loan Sequence Number"])
-                loan_ids.append(df["Loan Sequence Number"])
+                df = pd.read_parquet(file_path, columns=["Loan Sequence Number", "Monthly Reporting Period"])
+                loan_ids.append(df)
+
 
 # Concatenate all loan IDs
-loan_ids = pd.concat(loan_ids, ignore_index=True)
+# Concatenate all loan metadata
+loan_metadata = pd.concat(loan_ids, ignore_index=True)
 
 # Build output DataFrame
-output_df = pd.DataFrame({
-    "Loan Sequence Number": loan_ids,
-    "Calibrated P(Stress)": calibrated_preds
-})
+output_df = loan_metadata.copy()
+output_df["Calibrated P(Stress)"] = calibrated_preds
 
 # Write to Parquet
-output_df.to_parquet("calibrated_predictions_2023.parquet", index=False)
+output_df.to_parquet("calibrated_predictions_2024.parquet", index=False)
+
 
