@@ -180,75 +180,75 @@ output_df["Calibrated P(Stress)"] = calibrated_preds + 1e-10
 output_df['y_true'] = LABELS
 
 # Write to Parquet
-# output_df.to_parquet("calibrated_predictions_2007.parquet", index=False)
+output_df.to_parquet("calibrated_predictions_2007.parquet", index=False)
 
-# … after your calibrated metrics …
-pred_df = pd.DataFrame({
-    'y_true': LABELS,
-    'y_prob': preds,
-    'y_calib_prob': calibrated_preds + 1e-10
-})
+# # … after your calibrated metrics …
+# pred_df = pd.DataFrame({
+#     'y_true': LABELS,
+#     'y_prob': preds,
+#     'y_calib_prob': calibrated_preds + 1e-10
+# })
 
-# Build calibration bins on pred_df
-pred_df['bin'] = pd.qcut(pred_df['y_calib_prob'], q=300, duplicates='drop')
+# # Build calibration bins on pred_df
+# pred_df['bin'] = pd.qcut(pred_df['y_calib_prob'], q=300, duplicates='drop')
 
-calibration_summary = (
-    pred_df.groupby('bin')
-    .agg(
-        avg_calibrated_prob=('y_calib_prob', 'mean'),
-        actual_rate=('y_true', 'mean'),
-        count=('y_true', 'size')
-    )
-    .reset_index()
-)
+# calibration_summary = (
+#     pred_df.groupby('bin')
+#     .agg(
+#         avg_calibrated_prob=('y_calib_prob', 'mean'),
+#         actual_rate=('y_true', 'mean'),
+#         count=('y_true', 'size')
+#     )
+#     .reset_index()
+# )
 
-import numpy as np
-import matplotlib.pyplot as plt
+# import numpy as np
+# import matplotlib.pyplot as plt
 
-# 1) Define 5% bins from 0 to 1.0
-bin_edges = np.arange(0.0, 1.05, 0.05)
-labels    = [f"{int(left*100)}–{int(right*100)}%" 
-             for left, right in zip(bin_edges[:-1], bin_edges[1:])]
+# # 1) Define 5% bins from 0 to 1.0
+# bin_edges = np.arange(0.0, 1.05, 0.05)
+# labels    = [f"{int(left*100)}–{int(right*100)}%" 
+#              for left, right in zip(bin_edges[:-1], bin_edges[1:])]
 
-# 2) Assign each calibrated prediction to a bin
-pred_df['fixed_bin'] = pd.cut(
-    pred_df['y_calib_prob'],
-    bins=bin_edges,
-    include_lowest=True,
-    right=False,
-    labels=labels
-)
+# # 2) Assign each calibrated prediction to a bin
+# pred_df['fixed_bin'] = pd.cut(
+#     pred_df['y_calib_prob'],
+#     bins=bin_edges,
+#     include_lowest=True,
+#     right=False,
+#     labels=labels
+# )
 
-# 3) Summarize by bin
-fixed_cal_summary = (
-    pred_df
-    .groupby('fixed_bin')
-    .agg(
-        avg_calibrated_prob=('y_calib_prob', 'mean'),
-        actual_rate=('y_true', 'mean'),
-        count=('y_true', 'size')
-    )
-    .reset_index()
-)
+# # 3) Summarize by bin
+# fixed_cal_summary = (
+#     pred_df
+#     .groupby('fixed_bin')
+#     .agg(
+#         avg_calibrated_prob=('y_calib_prob', 'mean'),
+#         actual_rate=('y_true', 'mean'),
+#         count=('y_true', 'size')
+#     )
+#     .reset_index()
+# )
 
-fixed_cal_summary = fixed_cal_summary.sort_values('avg_calibrated_prob')
-plt.figure(figsize=(6,6))
-plt.plot(
-    fixed_cal_summary['avg_calibrated_prob'],
-    fixed_cal_summary['actual_rate'],
-    marker='o',
-    label='Calibrated Model'
-)
-plt.plot([0,1], [0,1], '--', color='gray', label='Perfect Calibration')
-plt.xlabel("Average Calibrated Probability")
-plt.ylabel("Observed Major Stress Rate")
-plt.title("2007 Out of Sample Calibration Curve (Fixed 5% Bins)")
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.savefig("Charts/valstress2007.png")
+# fixed_cal_summary = fixed_cal_summary.sort_values('avg_calibrated_prob')
+# plt.figure(figsize=(6,6))
+# plt.plot(
+#     fixed_cal_summary['avg_calibrated_prob'],
+#     fixed_cal_summary['actual_rate'],
+#     marker='o',
+#     label='Calibrated Model'
+# )
+# plt.plot([0,1], [0,1], '--', color='gray', label='Perfect Calibration')
+# plt.xlabel("Average Calibrated Probability")
+# plt.ylabel("Observed Major Stress Rate")
+# plt.title("2007 Out of Sample Calibration Curve (Fixed 5% Bins)")
+# plt.legend()
+# plt.grid(True)
+# plt.tight_layout()
+# plt.savefig("Charts/valstress2007.png")
 
-print(fixed_cal_summary)
+# print(fixed_cal_summary)
 
 
 
