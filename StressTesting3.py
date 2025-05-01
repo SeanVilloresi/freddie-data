@@ -9,7 +9,7 @@ with open("Models/LGD.pkl", "rb") as f:
     lgd_model = pickle.load(f)
 
 # 2) Set up directories and lists
-root_dir = './TrainingData'
+root_dir = './ValData'
 
 TEST_list = []
 metadata_list = []
@@ -19,13 +19,11 @@ MISC_COLUMNS_TO_DROP = [
     "MSA", 'Postal Code', 'Default Flag', 'Major Stress',
     'Distress Date', 'Unresolved', 'Last Time Current',
     'Property State', 'Current Loan Delinquency Status',
-    'Estimated Loan-to-Value (ELTV)'
-    # Note: We no longer include 'Loan Sequence Number' or
-    #       'Monthly Reporting Period' here, so we keep them in metadata.
+    'Estimated Loan-to-Value (ELTV)', "Loan Sequence Number", "Monthly Reporting Period"
 ]
 
 # 3) Load and filter data, capturing metadata
-for year in range(2022, 2024):  # just 2023
+for year in range(2007, 2008):  # just 2023
     year_path = os.path.join(root_dir, f"Year{year}")
     if not os.path.isdir(year_path):
         continue
@@ -44,15 +42,12 @@ for year in range(2022, 2024):  # just 2023
             (~df["Actual Loss Calculation"].isna()) &
             (df["Actual Loss Calculation"] != 0)
         ]
-
         if df.empty:
             continue
-
         # save metadata before dropping
         metadata_list.append(
             df[["Loan Sequence Number", "Monthly Reporting Period"]].reset_index(drop=True)
         )
-
         # keep the rest in TEST_list
         TEST_list.append(df.reset_index(drop=True))
 
@@ -155,10 +150,16 @@ FEATURES = TEST[[
 
 # 12) Predict LGD
 predicted_lgd = lgd_model.predict(FEATURES)
+true_lgd = (-1 * TEST["Actual Loss Calculation"]).clip(lower=0).values
 
 # 13) Build output DataFrame
 output_df = metadata_df.copy()
 output_df["LGD"] = predicted_lgd
 
+# 13) Build output DataFrame
+output_df = metadata_df.copy()
+output_df["Predicted LGD"] = predicted_lgd
+output_df["True LGD"] = true_lgd
+
 # 14) Save to Parquet
-output_df.to_parquet("lgd_predictions_2023.parquet", index=False)
+output_df.to_parquet("lgd_predictions_2007.parquet", index=False)
