@@ -49,9 +49,9 @@ for year_folder in sorted(os.listdir(root_dir)):
             if file.endswith('.parquet'):
                 file_path = os.path.join(year_path, file)
                 df = pd.read_parquet(file_path)
-                df = df[(df["Major Stress"] == 1)]
-                if year != 2024:
-                    df = df[~(df["Unresolved"] == 1)]
+                #df = df[(df["Major Stress"] == 1)]
+                #if year != 2024:
+                #    df = df[~(df["Unresolved"] == 1)]
                 TEST_list.append(df.drop(columns=['Default Flag']))
                 LABELS_list.append(df['Default Flag'])
                 IDs_list.append(df[["Loan Sequence Number", "Monthly Reporting Period"]])
@@ -111,16 +111,16 @@ print(TEST.shape)
 
 preds = model.predict_proba(TEST)[:, 1]
 
-ap_score = average_precision_score(LABELS, preds)
-brier = brier_score_loss(LABELS, preds)
-logloss = log_loss(LABELS, preds)
-accuracy = accuracy_score(LABELS, model.predict(TEST))
+#ap_score = average_precision_score(LABELS, preds)
+#brier = brier_score_loss(LABELS, preds)
+#logloss = log_loss(LABELS, preds)
+#accuracy = accuracy_score(LABELS, model.predict(TEST))
 
-print("\nTest Metrics:")
-print(f"Average Precision Score: {ap_score:.4f}")
-print(f"Brier Score: {brier:.6f}")
-print(f"Log Loss: {logloss:.6f}")
-print(f"Accuracy: {accuracy}")
+#print("\nTest Metrics:")
+#print(f"Average Precision Score: {ap_score:.4f}")
+#print(f"Brier Score: {brier:.6f}")
+#print(f"Log Loss: {logloss:.6f}")
+#print(f"Accuracy: {accuracy}")
 
 
 df = pd.DataFrame({
@@ -132,7 +132,7 @@ df = pd.DataFrame({
 })
 
 
-print(LABELS.mean())
+#print(LABELS.mean())
 
 # Write to Parquet
 df.to_parquet("ValPredictions/DefGivenStress2024.parquet", index=False)
