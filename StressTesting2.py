@@ -16,8 +16,8 @@ with open('Models/DefaultGivenDistress.pkl', 'rb') as file:
 # Define the root directory
 root_dir = './ValData'
 
-start_year = 2023
-end_year = 2023
+start_year = 2024
+end_year = 2024
 
 TEST_list = []
 LABELS_list = []
@@ -135,6 +135,6 @@ df = pd.DataFrame({
 print(LABELS.mean())
 
 # Write to Parquet
-df.to_parquet("ValPredictions/DefGivenStress.parquet", index=False)
+df.to_parquet("ValPredictions/DefGivenStress2024.parquet", index=False)
 
 
