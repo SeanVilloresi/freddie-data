@@ -23,7 +23,7 @@ MISC_COLUMNS_TO_DROP = [
 ]
 
 # 3) Load and filter data, capturing metadata
-for year in range(2024, 2025):
+for year in range(2007, 2025):
     year_path = os.path.join(root_dir, f"Year{year}")
     if not os.path.isdir(year_path):
         continue
@@ -44,7 +44,7 @@ for year in range(2024, 2025):
             continue
         # save metadata before dropping
         metadata_list.append(
-            df[["Loan Sequence Number", "Monthly Reporting Period", "Major Stress", "Default Flag", "Unresolved", "Actual Loss Calculation"]].reset_index(drop=True)
+            df[["Loan Sequence Number", "Monthly Reporting Period", "Major Stress", "Default Flag", "Unresolved", "Actual Loss Calculation", 'Current Actual UPB']].reset_index(drop=True)
         )
         # keep the rest in TEST_list
         TEST_list.append(df.reset_index(drop=True))

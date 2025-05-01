@@ -137,20 +137,20 @@ df = pd.DataFrame({
 
 df['y_calib_prob'] = df['y_calib_prob'] + 1e-10
 
-# Bin by original (uncalibrated) predicted probabilities
-# df['prob_bin'] = pd.qcut(df['y_calib_prob'], q=100, labels=False, duplicates='drop')
+#Bin by original (uncalibrated) predicted probabilities
+df['prob_bin'] = pd.qcut(df['y_calib_prob'], q=1000, labels=False, duplicates='drop')
 
-# # Group by bin and compute both raw and calibrated stats
-# calibration_df = df.groupby('prob_bin').agg(
-#     avg_predicted_prob=('y_prob', 'mean'),
-#     avg_calibrated_prob=('y_calib_prob', 'mean'),
-#     actual_rate=('y_true', 'mean'),
-#     count=('y_true', 'count')
-# ).reset_index()
+# Group by bin and compute both raw and calibrated stats
+calibration_df = df.groupby('prob_bin').agg(
+    avg_predicted_prob=('y_prob', 'mean'),
+    avg_calibrated_prob=('y_calib_prob', 'mean'),
+    actual_rate=('y_true', 'mean'),
+    count=('y_true', 'count')
+).reset_index()
 
-# # Optional: round for display
-# calibration_df = calibration_df.round(4)
-# show(calibration_df)
+# Optional: round for display
+calibration_df = calibration_df.round(4)
+#show(calibration_df)
 
 # Reload Loan Sequence Number from the raw input files
 loan_ids = []
@@ -181,5 +181,75 @@ output_df['y_true'] = LABELS
 
 # Write to Parquet
 # output_df.to_parquet("calibrated_predictions_2007.parquet", index=False)
+
+# … after your calibrated metrics …
+pred_df = pd.DataFrame({
+    'y_true': LABELS,
+    'y_prob': preds,
+    'y_calib_prob': calibrated_preds + 1e-10
+})
+
+# Build calibration bins on pred_df
+pred_df['bin'] = pd.qcut(pred_df['y_calib_prob'], q=300, duplicates='drop')
+
+calibration_summary = (
+    pred_df.groupby('bin')
+    .agg(
+        avg_calibrated_prob=('y_calib_prob', 'mean'),
+        actual_rate=('y_true', 'mean'),
+        count=('y_true', 'size')
+    )
+    .reset_index()
+)
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# 1) Define 5% bins from 0 to 1.0
+bin_edges = np.arange(0.0, 1.05, 0.05)
+labels    = [f"{int(left*100)}–{int(right*100)}%" 
+             for left, right in zip(bin_edges[:-1], bin_edges[1:])]
+
+# 2) Assign each calibrated prediction to a bin
+pred_df['fixed_bin'] = pd.cut(
+    pred_df['y_calib_prob'],
+    bins=bin_edges,
+    include_lowest=True,
+    right=False,
+    labels=labels
+)
+
+# 3) Summarize by bin
+fixed_cal_summary = (
+    pred_df
+    .groupby('fixed_bin')
+    .agg(
+        avg_calibrated_prob=('y_calib_prob', 'mean'),
+        actual_rate=('y_true', 'mean'),
+        count=('y_true', 'size')
+    )
+    .reset_index()
+)
+
+fixed_cal_summary = fixed_cal_summary.sort_values('avg_calibrated_prob')
+plt.figure(figsize=(6,6))
+plt.plot(
+    fixed_cal_summary['avg_calibrated_prob'],
+    fixed_cal_summary['actual_rate'],
+    marker='o',
+    label='Calibrated Model'
+)
+plt.plot([0,1], [0,1], '--', color='gray', label='Perfect Calibration')
+plt.xlabel("Average Calibrated Probability")
+plt.ylabel("Observed Major Stress Rate")
+plt.title("2007 Out of Sample Calibration Curve (Fixed 5% Bins)")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.savefig("Charts/valstress2007.png")
+
+print(fixed_cal_summary)
+
+
 
 
