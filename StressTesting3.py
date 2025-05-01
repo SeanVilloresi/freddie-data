@@ -23,7 +23,7 @@ MISC_COLUMNS_TO_DROP = [
 ]
 
 # 3) Load and filter data, capturing metadata
-for year in range(2007, 2008):  # just 2023
+for year in range(2024, 2025):
     year_path = os.path.join(root_dir, f"Year{year}")
     if not os.path.isdir(year_path):
         continue
@@ -35,18 +35,16 @@ for year in range(2007, 2008):  # just 2023
         file_path = os.path.join(year_path, file)
         df = pd.read_parquet(file_path)
        
-
-        # filter to defaulted loans with non-zero loss
-        df = df[
-            (df["Default Flag"] == 1) &
-            (~df["Actual Loss Calculation"].isna()) &
-            (df["Actual Loss Calculation"] != 0)
-        ]
+        # df = df[
+        #     (df["Default Flag"] == 1) &
+        #     (~df["Actual Loss Calculation"].isna()) &
+        #     (df["Actual Loss Calculation"] != 0)
+        # ]
         if df.empty:
             continue
         # save metadata before dropping
         metadata_list.append(
-            df[["Loan Sequence Number", "Monthly Reporting Period"]].reset_index(drop=True)
+            df[["Loan Sequence Number", "Monthly Reporting Period", "Major Stress", "Default Flag", "Unresolved", "Actual Loss Calculation"]].reset_index(drop=True)
         )
         # keep the rest in TEST_list
         TEST_list.append(df.reset_index(drop=True))
@@ -162,4 +160,4 @@ output_df["Predicted LGD"] = predicted_lgd
 output_df["True LGD"] = true_lgd
 
 # 14) Save to Parquet
-output_df.to_parquet("lgd_predictions_2007.parquet", index=False)
+output_df.to_parquet("lgd_predictions_2024.parquet", index=False)

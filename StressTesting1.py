@@ -37,8 +37,8 @@ def apply_empirical_calibration(y_scores, intervals, probs):
 # Define the root directory
 root_dir = './ValData'
 
-start_year = 2024
-end_year = 2024
+start_year = 2007
+end_year = 2007
 
 TEST_list = []
 LABELS_list = []
@@ -120,6 +120,7 @@ calibrated_preds = apply_empirical_calibration(preds, intervals, probs)
 
 # Calibrated metrics
 ap_score_cal = average_precision_score(LABELS, calibrated_preds)
+print(LABELS.value_counts())
 brier_cal = brier_score_loss(LABELS, calibrated_preds)
 logloss_cal = log_loss(LABELS, calibrated_preds)
 
@@ -179,6 +180,6 @@ output_df["Calibrated P(Stress)"] = calibrated_preds + 1e-10
 output_df['y_true'] = LABELS
 
 # Write to Parquet
-output_df.to_parquet("calibrated_predictions_2024.parquet", index=False)
+# output_df.to_parquet("calibrated_predictions_2007.parquet", index=False)
 
 
